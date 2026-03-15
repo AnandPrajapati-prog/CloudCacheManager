@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CloudCache Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --surface2: #f8fafc;
+    --border: #dde3ec;
+    --accent: #0072b8;
+    --accent2: #6d28d9;
+    --success: #059669;
+    --warn: #d97706;
+    --danger: #dc2626;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-head: 'Syne', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle dot grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(0,114,184,0.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text { color: var(--text); }
+  .logo-text span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .badge-path { background: rgba(0,114,184,0.08); color: var(--accent); border: 1px solid rgba(0,114,184,0.2); }
+  .badge-auth { background: rgba(5,150,105,0.08); color: var(--success); border: 1px solid rgba(5,150,105,0.2); }
+  .badge-unauth { background: rgba(220,38,38,0.07); color: var(--danger); border: 1px solid rgba(220,38,38,0.2); }
+  .btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #005fa3; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,114,184,0.25); }
+  .btn-danger { background: rgba(220,38,38,0.08); color: var(--danger); border: 1px solid rgba(220,38,38,0.2); }
+  .btn-danger:hover { background: rgba(220,38,38,0.15); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover { background: #047857; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(5,150,105,0.25); }
+  .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--accent); background: rgba(0,114,184,0.04); }
+  .btn-sm { padding: 5px 12px; font-size: 11px; border-radius: 6px; }
+
+  /* MAIN LAYOUT */
+  main { display: flex; flex: 1; gap: 0; min-height: 0; overflow: hidden; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 300px;
+    min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.04);
+    min-height: 0;
+  }
+  .sidebar-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+  }
+  .sidebar-title {
+    font-family: var(--font-head);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .tree { padding: 6px 0; }
+  .tree-folder { user-select: none; }
+  .folder-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    margin: 1px 6px;
+    transition: all 0.15s;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .folder-header:hover { background: rgba(0,114,184,0.06); }
+  .folder-header.active { background: rgba(0,114,184,0.1); color: var(--accent); }
+  .folder-chevron {
+    width: 14px; height: 14px;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  .folder-chevron.open { transform: rotate(90deg); }
+  .folder-icon { font-size: 14px; flex-shrink: 0; }
+  .folder-name { flex: 1; font-weight: 500; }
+  .folder-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    background: rgba(0,114,184,0.1);
+    color: var(--accent);
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .folder-children { padding-left: 16px; }
+  .folder-children.collapsed { display: none; }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    margin: 1px 6px;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .file-item:hover { background: rgba(0,0,0,0.04); color: var(--text); }
+  .file-item.selected { background: rgba(109,40,217,0.08); color: var(--accent2); border: 1px solid rgba(109,40,217,0.2); }
+  .file-icon { font-size: 13px; flex-shrink: 0; }
+  .file-name { flex: 1; }
+  .file-size { font-size: 10px; color: var(--text-muted); }
+  .download-btn {
+    opacity: 0;
+    background: rgba(0,114,184,0.1);
+    color: var(--accent);
+    border: none;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    transition: all 0.15s;
+  }
+  .file-item:hover .download-btn { opacity: 1; }
+  .download-btn:hover { background: rgba(0,114,184,0.2); }
+
+  /* CONTENT AREA */
+  .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+
+  /* WELCOME */
+  .welcome {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--text-muted);
+    padding: 40px;
+  }
+  .welcome-icon { font-size: 64px; opacity: 0.25; }
+  .welcome h2 { font-family: var(--font-head); font-size: 22px; color: var(--text); font-weight: 700; }
+  .welcome p { font-size: 13px; max-width: 400px; text-align: center; line-height: 1.7; }
+
+  /* FILE VIEWER */
+  .file-viewer { display: none; flex: 1; flex-direction: column; overflow: hidden; min-height: 0; }
+  .file-viewer.active { display: flex; }
+  .viewer-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+  }
+  .viewer-path { flex: 1; font-size: 12px; color: var(--text-muted); }
+  .viewer-path span { color: var(--accent); font-weight: 600; }
+  .viewer-actions { display: flex; gap: 8px; }
+  .auth-required-note { font-size: 11px; color: var(--warn); display: flex; align-items: center; gap: 5px; }
+
+  /* TAB BAR */
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+    padding: 0 20px;
+    gap: 4px;
+  }
+  .tab {
+    padding: 10px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab-panel { display: none; flex: 1; overflow: hidden; }
+  .tab-panel.active { display: flex; flex-direction: column; }
+
+  /* JSON CONTENT */
+  .json-content { flex: 1; padding: 20px; overflow: auto; }
+  .json-raw {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    overflow: auto;
+  }
+  .json-raw pre {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+  .json-key { color: #0369a1; font-weight: 600; }
+  .json-string { color: #15803d; }
+  .json-number { color: #7c3aed; }
+  .json-bool { color: #b45309; }
+  .json-null { color: #94a3b8; }
+
+  /* EDIT PANEL */
+  .edit-panel { padding: 18px; display: flex; flex-direction: column; gap: 14px; overflow: auto; flex: 1; min-height: 0; }
+  .lock-overlay {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--text-muted);
+    padding: 40px;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .lock-icon { font-size: 52px; }
+  .lock-overlay h3 { font-family: var(--font-head); font-size: 20px; color: var(--text); }
+  .lock-overlay p { font-size: 13px; text-align: center; max-width: 340px; line-height: 1.6; }
+  .editor-textarea {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.7;
+    resize: vertical;
+    min-height: 300px;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+  .editor-textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,114,184,0.1); }
+  .backup-note {
+    font-size: 11px;
+    color: var(--warn);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(217,119,6,0.07);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(217,119,6,0.2);
+  }
+
+  /* ADD KEY-VALUE PANEL */
+  .kv-panel { padding: 20px; display: flex; flex-direction: column; gap: 18px; overflow: auto; flex: 1; min-height: 0; }
+  .kv-form {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 520px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 11px; color: var(--text-muted); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  input[type="text"], input[type="password"] {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    width: 100%;
+    transition: all 0.2s;
+  }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,114,184,0.1); }
+
+  /* LOGIN MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,0.4);
+    backdrop-filter: blur(6px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 34px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.15);
+    animation: slideUp 0.28s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(16px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal-title { font-family: var(--font-head); font-size: 22px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .modal-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 22px; }
+  .modal-body { display: flex; flex-direction: column; gap: 16px; }
+  .modal-footer { display: flex; gap: 10px; margin-top: 22px; justify-content: flex-end; }
+
+  /* TOAST */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+  .toast {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 13px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    animation: slideIn 0.3s ease;
+    max-width: 360px;
+    color: var(--text);
+  }
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .toast.success { border-left: 3px solid var(--success); }
+  .toast.error { border-left: 3px solid var(--danger); }
+  .toast.info { border-left: 3px solid var(--accent); }
+  .toast.warn { border-left: 3px solid var(--warn); }
+
+  /* LOADING */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,114,184,0.15);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  .backup-info {
+    background: rgba(5,150,105,0.07);
+    border: 1px solid rgba(5,150,105,0.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--success);
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .no-files { padding: 14px 20px; font-size: 12px; color: var(--text-muted); font-style: italic; }
+
+  /* STATS BAR */
+  .stats-bar {
+    padding: 7px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border);
+    display: flex; gap: 20px;
+    font-size: 11px; color: var(--text-muted);
+  }
+  .stat-item { display: flex; align-items: center; gap: 5px; }
+  .stat-dot { width: 6px; height: 6px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">☁️</div>
+      <div class="logo-text"><span>Cloud</span>Cache Manager</div>
+    </div>
+    <div class="header-right">
+      <span class="badge badge-path">D:\CloudCache\UserAppSettings</span>
+      <span id="authBadge" class="badge badge-unauth">🔒 Not Authenticated</span>
+      <button class="btn btn-primary" id="loginBtn" onclick="openLogin()">Login</button>
+      <button class="btn btn-danger" id="logoutBtn" onclick="logout()" style="display:none">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">📁 Directory Tree</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadTree()">↻ Refresh</button>
+      </div>
+      <div class="tree" id="treeContainer">
+        <div class="no-files">Loading directory tree...</div>
+      </div>
+    </aside>
+
+    <div class="content">
+      <div class="welcome" id="welcomeState">
+        <div class="welcome-icon">📂</div>
+        <h2>Select a file to view</h2>
+        <p>Browse the directory tree on the left. Click any file to view its contents or download it.</p>
+      </div>
+
+      <div class="file-viewer" id="fileViewer">
+        <div class="viewer-header">
+          <div class="viewer-path">📄 <span id="currentFilePath">-</span></div>
+          <div class="viewer-actions">
+            <span id="roleBadgeViewer" style="display:none;font-size:11px;color:var(--text-muted);background:rgba(100,116,139,0.1);border:1px solid var(--border);padding:3px 10px;border-radius:20px;">👁 View &amp; Download only</span>
+            <button class="btn btn-ghost btn-sm" onclick="downloadCurrentFile()">⬇ Download</button>
+          </div>
+        </div>
+
+        <div class="stats-bar">
+          <div class="stat-item"><div class="stat-dot" style="background:var(--accent)"></div><span id="fileSize">-</span></div>
+          <div class="stat-item"><div class="stat-dot" style="background:var(--success)"></div><span id="fileModified">-</span></div>
+          <div class="stat-item"><div class="stat-dot" style="background:var(--accent2)"></div><span id="fileType">-</span></div>
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab active" onclick="switchTab('view')" id="tabView">👁 View</div>
+          <div class="tab" onclick="switchTab('edit')" id="tabEdit" style="display:none">✏️ Edit</div>
+          <div class="tab" onclick="switchTab('addkv')" id="tabAddKV" style="display:none">➕ Add Key/Value</div>
+        </div>
+
+        <div class="tab-panel active" id="panelView">
+          <div class="json-content">
+            <div class="json-raw"><pre id="jsonDisplay"></pre></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panelEdit">
+          <div id="editLock" class="lock-overlay">
+            <div class="lock-icon">🔐</div>
+            <h3>Not Authorized</h3>
+            <p>Your role does not have permission to edit files. Only Admin and Manager can edit.</p>
+          </div>
+          <div id="editUnlocked" class="edit-panel" style="display:none">
+            <div class="backup-note">⚠️ A backup will be automatically created before saving any changes.</div>
+            <textarea class="editor-textarea" id="editorTextarea" placeholder="File content..."></textarea>
+            <div id="lastBackupInfo" style="display:none" class="backup-info"></div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-success" onclick="saveFile()">💾 Save Changes</button>
+              <button class="btn btn-ghost" onclick="resetEditor()">↩ Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panelAddKV">
+          <div id="kvLock" class="lock-overlay">
+            <div class="lock-icon">🔐</div>
+            <h3>Not Authorized</h3>
+            <p>Your role does not have permission to add key-value pairs. Only Admin and Manager can do this.</p>
+          </div>
+          <div id="kvUnlocked" class="kv-panel" style="display:none">
+            <div class="backup-note">⚠️ A backup will be automatically created before adding any key-value pair.</div>
+            <div class="kv-form">
+              <h3 style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text)">Add Key / Value to JSON</h3>
+              <div class="form-group">
+                <label>KEY</label>
+                <input type="text" id="kvKey" placeholder='e.g. "ConnectionString"'/>
+              </div>
+              <div class="form-group">
+                <label>VALUE</label>
+                <input type="text" id="kvValue" placeholder='e.g. "Server=localhost;..."'/>
+              </div>
+              <div id="kvBackupInfo" style="display:none" class="backup-info"></div>
+              <button class="btn btn-success" onclick="addKeyValue()">➕ Add Key/Value</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal">
+    <div class="modal-title">🔐 Login</div>
+    <div class="modal-sub">Login required to access the file manager.</div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>USERNAME</label>
+        <input type="text" id="loginUser" placeholder="Enter username"/>
+      </div>
+      <div class="form-group">
+        <label>PASSWORD</label>
+        <input type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <div id="loginError" style="color:var(--danger);font-size:12px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeLogin()">Cancel</button>
+      <button class="btn btn-primary" onclick="doLogin()">Login</button>
+    </div>
+    <div style="margin-top:16px;font-size:11px;color:var(--text-muted);line-height:1.8">
+      <b>Admin/Manager</b> — view, download, edit, add key/value<br>
+      <b>Viewer</b> — view file structure &amp; download only
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+let authToken = localStorage.getItem('cc_token') || null;
+let currentUser = localStorage.getItem('cc_user') || null;
+let currentRole = localStorage.getItem('cc_role') || null;
+let currentFile = null;
+let currentFileContent = '';
+const API = '';
+
+const canEdit = () => currentRole === 'Admin' || currentRole === 'Manager';
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (authToken) { updateAuthUI(); loadTree(); }
+  else { openLogin(); }
+});
+
+function openLogin() {
+  document.getElementById('loginModal').classList.add('open');
+  document.getElementById('loginError').style.display = 'none';
+  setTimeout(() => document.getElementById('loginUser').focus(), 100);
+}
+function closeLogin() {
+  if (authToken) document.getElementById('loginModal').classList.remove('open');
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  if (!username || !password) { errEl.textContent = 'Please enter username and password.'; errEl.style.display = 'block'; return; }
+  try {
+    const res = await fetch(`${API}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+    const data = await res.json();
+    if (data.success && data.data?.token) {
+      authToken = data.data.token; currentUser = data.data.username; currentRole = data.data.role;
+      localStorage.setItem('cc_token', authToken); localStorage.setItem('cc_user', currentUser); localStorage.setItem('cc_role', currentRole);
+      document.getElementById('loginModal').classList.remove('open');
+      updateAuthUI(); loadTree();
+      toast(`Welcome, ${currentUser}! Role: ${currentRole}`, 'success');
+    } else { errEl.textContent = data.message || 'Invalid credentials'; errEl.style.display = 'block'; }
+  } catch { errEl.textContent = 'Connection error. Is the server running?'; errEl.style.display = 'block'; }
+}
+
+function logout() {
+  authToken = null; currentUser = null; currentRole = null; currentFile = null;
+  localStorage.removeItem('cc_token'); localStorage.removeItem('cc_user'); localStorage.removeItem('cc_role');
+  document.getElementById('treeContainer').innerHTML = '<div class="no-files">Please login to view files.</div>';
+  document.getElementById('fileViewer').classList.remove('active');
+  document.getElementById('welcomeState').style.display = 'flex';
+  updateAuthUI();
+  toast('Logged out.', 'info');
+  setTimeout(() => openLogin(), 400);
+}
+
+function updateAuthUI() {
+  const badge = document.getElementById('authBadge');
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (authToken && currentUser) {
+    const roleColors = { Admin: 'var(--success)', Manager: 'var(--accent)', Viewer: 'var(--text-muted)' };
+    const roleIcons  = { Admin: '🛡️', Manager: '⚙️', Viewer: '👁' };
+    badge.className = 'badge badge-auth';
+    badge.style.color = roleColors[currentRole] || 'var(--text-muted)';
+    badge.textContent = `${roleIcons[currentRole] || '👤'} ${currentUser} (${currentRole})`;
+    loginBtn.style.display = 'none'; logoutBtn.style.display = 'flex';
+  } else {
+    badge.className = 'badge badge-unauth';
+    badge.textContent = '🔒 Not Authenticated';
+    loginBtn.style.display = 'flex'; logoutBtn.style.display = 'none';
+  }
+}
+
+async function loadTree() {
+  const container = document.getElementById('treeContainer');
+  container.innerHTML = '<div class="no-files"><span class="spinner"></span> Loading...</div>';
+  try {
+    const res = await fetch(`${API}/api/files/tree`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+    if (res.status === 401) { container.innerHTML = '<div class="no-files">Session expired. Please login again.</div>'; logout(); return; }
+    const data = await res.json();
+    if (data.success && data.data) { container.innerHTML = ''; renderFolder(container, data.data, 0); }
+    else { container.innerHTML = `<div class="no-files">⚠️ ${data.message}</div>`; }
+  } catch { container.innerHTML = '<div class="no-files">⚠️ Cannot connect to server.</div>'; }
+}
+
+function renderFolder(parent, folder, depth) {
+  const folderEl = document.createElement('div'); folderEl.className = 'tree-folder';
+  const header = document.createElement('div'); header.className = 'folder-header';
+  const fileCount = (folder.files?.length || 0) + (folder.subFolders?.length || 0);
+  header.innerHTML = `<svg class="folder-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg><span class="folder-icon">📁</span><span class="folder-name">${folder.name}</span>${fileCount > 0 ? `<span class="folder-badge">${fileCount}</span>` : ''}`;
+  const chevron = header.querySelector('.folder-chevron');
+  const childrenEl = document.createElement('div'); childrenEl.className = 'folder-children collapsed';
+  if (fileCount === 0) chevron.style.opacity = '0.2';
+  header.onclick = () => { const isOpen = !childrenEl.classList.contains('collapsed'); childrenEl.classList.toggle('collapsed'); chevron.classList.toggle('open', !isOpen); header.classList.toggle('active', !isOpen); };
+  folderEl.appendChild(header);
+  if (folder.subFolders?.length) folder.subFolders.forEach(sub => renderFolder(childrenEl, sub, depth + 1));
+  if (folder.files?.length) folder.files.forEach(file => {
+    const fileEl = document.createElement('div'); fileEl.className = 'file-item'; fileEl.dataset.path = file.path;
+    fileEl.innerHTML = `<span class="file-icon">${file.isJson ? '📋' : '📄'}</span><span class="file-name">${file.name}</span><span class="file-size">${formatSize(file.size)}</span><button class="download-btn" onclick="event.stopPropagation();downloadFile('${file.path}','${file.name}')">⬇</button>`;
+    fileEl.onclick = () => openFile(file); childrenEl.appendChild(fileEl);
+  });
+  folderEl.appendChild(childrenEl); parent.appendChild(folderEl);
+}
+
+async function openFile(file) {
+  document.querySelectorAll('.file-item').forEach(el => { el.classList.remove('selected'); if (el.dataset.path === file.path) el.classList.add('selected'); });
+  currentFile = file;
+  document.getElementById('welcomeState').style.display = 'none'; document.getElementById('fileViewer').classList.add('active');
+  document.getElementById('currentFilePath').textContent = file.path;
+  document.getElementById('fileSize').textContent = formatSize(file.size);
+  document.getElementById('fileModified').textContent = new Date(file.lastModified).toLocaleString();
+  document.getElementById('fileType').textContent = file.isJson ? 'JSON' : 'TEXT';
+
+  // Role-based UI: show/hide tabs and viewer-only badge
+  const editor = canEdit();
+  document.getElementById('roleBadgeViewer').style.display = editor ? 'none' : 'inline-flex';
+  document.getElementById('tabEdit').style.display = editor ? 'flex' : 'none';
+  document.getElementById('tabAddKV').style.display = editor ? 'flex' : 'none';
+
+  try {
+    const res = await fetch(`${API}/api/files/read?path=${encodeURIComponent(file.path)}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+    if (res.ok) { const data = await res.json(); currentFileContent = data.data || ''; displayContent(currentFileContent, file.isJson); document.getElementById('editorTextarea').value = currentFileContent; }
+  } catch { document.getElementById('jsonDisplay').textContent = '(Could not load file content)'; }
+  updateEditPanels(); switchTab('view');
+}
+
+function displayContent(content, isJson) {
+  const display = document.getElementById('jsonDisplay');
+  if (isJson) { try { display.innerHTML = syntaxHighlight(JSON.stringify(JSON.parse(content), null, 2)); } catch { display.textContent = content; } }
+  else { display.textContent = content; }
+}
+function syntaxHighlight(json) {
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+    let cls = 'json-number';
+    if (/^"/.test(match)) { cls = /:$/.test(match) ? 'json-key' : 'json-string'; }
+    else if (/true|false/.test(match)) { cls = 'json-bool'; }
+    else if (/null/.test(match)) { cls = 'json-null'; }
+    return `<span class="${cls}">${match}</span>`;
+  });
+}
+function updateEditPanels() {
+  const editor = canEdit();
+  document.getElementById('editLock').style.display = editor ? 'none' : 'flex';
+  document.getElementById('editUnlocked').style.display = editor ? 'flex' : 'none';
+  document.getElementById('kvLock').style.display = editor ? 'none' : 'flex';
+  document.getElementById('kvUnlocked').style.display = editor ? 'flex' : 'none';
+}
+async function saveFile() {
+  if (!canEdit() || !currentFile) return;
+  const content = document.getElementById('editorTextarea').value;
+  try {
+    const res = await fetch(`${API}/api/files/edit`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }, body: JSON.stringify({ filePath: currentFile.path, content }) });
+    const data = await res.json();
+    if (data.success) {
+      currentFileContent = content; displayContent(content, currentFile.isJson);
+      const b = document.getElementById('lastBackupInfo'); b.style.display = 'flex';
+      b.innerHTML = '✅ File saved!<br>📁 <b>Local backup:</b> <code style="font-size:11px">' + (data.backup?.localBackupPath||'-') + '</code><br>👤 <b>User backup:</b> <code style="font-size:11px">' + (data.backup?.userBackupPath||'-') + '</code>';
+      toast('File saved! Both backups created.', 'success');
+    } else { toast(`Error: ${data.message}`, 'error'); }
+  } catch { toast('Failed to save. Check server.', 'error'); }
+}
+function resetEditor() { document.getElementById('editorTextarea').value = currentFileContent; document.getElementById('lastBackupInfo').style.display = 'none'; toast('Editor reset.', 'info'); }
+async function addKeyValue() {
+  if (!canEdit() || !currentFile) return;
+  const key = document.getElementById('kvKey').value.trim(), value = document.getElementById('kvValue').value.trim();
+  if (!key) { toast('Please enter a key.', 'warn'); return; }
+  try {
+    const res = await fetch(`${API}/api/files/addkeyvalue`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }, body: JSON.stringify({ filePath: currentFile.path, key, value }) });
+    const data = await res.json();
+    if (data.success) {
+      const b = document.getElementById('kvBackupInfo'); b.style.display = 'flex';
+      b.innerHTML = '✅ Key added!<br>📁 <b>Local backup:</b> <code style="font-size:11px">' + (data.backup?.localBackupPath||'-') + '</code><br>👤 <b>User backup:</b> <code style="font-size:11px">' + (data.backup?.userBackupPath||'-') + '</code>';
+      document.getElementById('kvKey').value = ''; document.getElementById('kvValue').value = '';
+      toast(`Key "${key}" added! Backup created.`, 'success');
+      const res2 = await fetch(`${API}/api/files/read?path=${encodeURIComponent(currentFile.path)}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (res2.ok) { const d2 = await res2.json(); currentFileContent = d2.data; displayContent(currentFileContent, currentFile.isJson); document.getElementById('editorTextarea').value = currentFileContent; }
+    } else { toast(`Error: ${data.message}`, 'error'); }
+  } catch { toast('Failed to add key-value.', 'error'); }
+}
+function downloadFile(path, name) {
+  fetch(`${API}/api/files/download?path=${encodeURIComponent(path)}`, { headers: { 'Authorization': `Bearer ${authToken}` } })
+    .then(r => { if (!r.ok) throw new Error(); return r.blob(); })
+    .then(blob => { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); })
+    .catch(() => toast('Download failed. Check your session.', 'error'));
+}
+function downloadCurrentFile() { if (!currentFile) return; downloadFile(currentFile.path, currentFile.name); }
+function switchTab(tab) {
+  ['view', 'edit', 'addkv'].forEach(t => {
+    document.getElementById(`tab${t==='view'?'View':t==='edit'?'Edit':'AddKV'}`).classList.toggle('active', t===tab);
+    document.getElementById(`panel${t==='view'?'View':t==='edit'?'Edit':'AddKV'}`).classList.toggle('active', t===tab);
+  });
+  if (tab === 'edit' || tab === 'addkv') updateEditPanels();
+}
+function formatSize(bytes) { if (bytes < 1024) return `${bytes} B`; if (bytes < 1048576) return `${(bytes/1024).toFixed(1)} KB`; return `${(bytes/1048576).toFixed(2)} MB`; }
+function toast(message, type = 'info') {
+  const container = document.getElementById('toastContainer'), el = document.createElement('div');
+  el.className = `toast ${type}`; el.innerHTML = `<span>${{success:'✅',error:'❌',info:'ℹ️',warn:'⚠️'}[type]||'ℹ️'}</span><span>${message}</span>`;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateX(100%)'; el.style.transition='all 0.3s'; setTimeout(()=>el.remove(),300); }, 4000);
+}
+</script>
+</body>
+</html>

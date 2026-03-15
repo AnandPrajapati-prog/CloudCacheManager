@@ -7,6 +7,20 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var basePath = builder.Configuration["AppSettings:BasePath"];
+
+if (string.IsNullOrEmpty(basePath))
+{
+    basePath = OperatingSystem.IsWindows()
+        ? @"D:\CloudCache\UserAppSettings"
+        : "/app/data";
+}
+
+// Ensure directory exists
+if (!Directory.Exists(basePath))
+{
+    Directory.CreateDirectory(basePath);
+}
 // ── Bind AppSettings section ─────────────────────────────
 builder.Services.Configure<AppSettings>(
     builder.Configuration.GetSection("AppSettings"));
